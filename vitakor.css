@@ -1,0 +1,57 @@
+body {
+      margin: 0;
+      font-family: 'Nunito', sans-serif;
+      background-color: #baffd7;
+      color: #b4f7b1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background-color: rgba(28, 81, 46, 1);
+      padding: 20px;
+      text-align: center;
+      box-shadow: 2px 6px 10px rgba(0, 0, 0, 0.699);
+    }
+    img { width: 160px; }
+    .doboz {
+      background-color: #103c22;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      color: #f0eaea;
+      box-shadow: 2px 6px 10px rgba(0, 0, 0, 0.699);
+      text-align: center;
+    }
+    .cim { font-size: 32px; }
+    footer {
+      background-color: #103c22;
+      text-align: center;
+      padding: 15px;
+      font-size: 14px;
+      color: #88d194;
+    }
+    main {
+      flex: 1;
+      padding: 40px 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .nev, .part {
+      height: 40px;
+      border-radius: 10px;
+      font-size: 20px;
+      border: #4cda58 solid 4px;
+      width: 280px;
+    }
+    .belép {
+      border-radius: 10px;
+      font-size: 20px;
+      border: #4cda58 solid 4px;
+      padding: 16px;
+      background-color: #045827;
+      color: #f0eaea;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    .fejlec { font-size: 18px; }

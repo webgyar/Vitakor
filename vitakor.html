@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vitakör-Főoldal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="VK.png" />
+  <link rel="stylesheet" href="vitakor.css">
+  
+</head>
+<body>
+  <header><img src="logo.png" alt="Vitakör"></header>
+  <main>
+    <div class="doboz">
+      <h2>Üdvözlünk a Vitakör weboldalán!</h2>
+      <p>Itt kulturáltan vitázhatsz politikáról, társadalomról és közéletről.</p>
+    </div>
+
+    <div class="doboz">
+      <p>Online felhasználók: <span id="online"></span></p>
+
+      <h2 class="cim">Chat</h2>
+
+      <form action="chat.html" method="GET" id="belepesForm">
+        <input name="nev" id="nev" placeholder="Neved:" required class="nev"><br><br>
+        <select name="part" id="part" required class="part">
+          <option value="">Válassz pártot:</option>
+          <option value="Tisza">Tisza Párt</option>
+          <option value="Fidesz">Fidesz</option>
+          <option value="DK">DK</option>
+          <option value="Mi Hazánk">Mi Hazánk</option>
+          <option value="Momentum">Momentum</option>
+          <option value="MSZP">MSZP</option>
+          <option value="Jobbik">Jobbik</option>
+          <option value="LMP">LMP</option>
+          <option value="Párbeszéd">Párbeszéd</option>
+        </select><br><br>
+        <button type="submit" class="belép">Belépek</button>
+      </form>
+    </div>
+  </main>
+  <footer><p id="copyright"></p></footer>
+  
+  <script>
+    const ev = new Date().getFullYear();
+    document.getElementById("copyright").innerText = `© ${ev} Vitakör.hu`;
+  </script>
+
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io("http://localhost:3002");
+
+    socket.on("online", function(count) {
+      document.getElementById("online").innerText = count;
+    });
+
+    document.getElementById("belepesForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      const nev = document.getElementById("nev").value;
+      const part = document.getElementById("part").value;
+      
+      window.location.href = `chat.html?nev=${encodeURIComponent(nev)}&part=${encodeURIComponent(part)}`;
+    });
+  </script>
+</body>
+</html>

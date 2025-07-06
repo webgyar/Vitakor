@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vitakör-Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="VK.png" />
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <header>
+    <img src="logo.png" alt="Vitakör">
+  </header>
+
+  <main>
+    <div class="doboz">
+      <h2>Üdvözlünk a Vitakör weboldalán!</h2>
+      <p>Itt kulturáltan vitázhatsz politikáról, társadalomról és közéletről.</p>
+    </div>
+
+    <div class="doboz">
+      <div class="fejlec">
+        <p>Online felhasználók: <span id="online"></span></p>
+      </div>
+
+      <h2 class="cim">Chat</h2>
+      <div class="partner-info" id="partnerInfo">Várakozás partnerre...</div>
+      <div class="chat-container" id="chat"></div>
+      <div class="input-container">
+        <input type="text" id="uzenet" placeholder="Írj valamit...">
+        <button onclick="kuldes()" >Küldés</button>
+        <button onclick="ujPartner()" >Új partner</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p id="copyright"></p>
+  </footer>
+
+  <script>
+    const ev = new Date().getFullYear();
+    document.getElementById("copyright").innerText = `© ${ev} Vitakör.hu`;
+  </script>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io("https://vitakor.onrender.com");
+
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const sajatNev = urlParams.get("nev");
+    const sajatPart = urlParams.get("part");
+
+    socket.emit("register", { name: sajatNev, party: sajatPart });
+
+    socket.on("online", (count) => {
+      document.getElementById("online").textContent = count;
+    });
+
+    socket.on("partner-found", ({ name, party }) => {
+      document.getElementById("partnerInfo").innerText = `Beszélgetőtársad: ${name} (${party})`;
+    });
+
+    socket.on("message", (msg) => {
+      const chat = document.getElementById("chat");
+      if (typeof msg === "object" && msg.from && msg.text) {
+        chat.innerHTML += `<div><strong>${msg.from}:</strong> ${msg.text}</div>`;
+      } else {
+        chat.innerHTML += `<div><strong>Partner:</strong> ${msg}</div>`;
+      }
+    });
+
+    socket.on("partner-left", () => {
+      document.getElementById("partnerInfo").innerText = "Partner kilépett, új keresése...";
+    });
+
+    function kuldes() {
+      const input = document.getElementById("uzenet");
+      const msg = input.value;
+      if (msg.trim() === "") return;
+      socket.emit("message", msg);
+      const chat = document.getElementById("chat");
+      chat.innerHTML += `<div><strong>Te:</strong> ${msg}</div>`;
+      input.value = "";
+    }
+
+    function ujPartner() {
+      socket.emit("new-partner");
+      document.getElementById("partnerInfo").innerText = "Új partner keresése...";
+    }
+  </script>
+</body>
+</html>
