@@ -39,11 +39,9 @@ function matchUsers() {
         party: user1.party,
       });
 
-      
       users = users.filter((u) => u !== user1 && u !== user2);
 
-      
-      matchUsers();
+      matchUsers(); 
       break;
     }
   }
@@ -75,26 +73,45 @@ io.on("connection", (socket) => {
     onlineUsers--;
     io.emit("online", onlineUsers);
 
-    
-    let userIndex = users.findIndex(u => u.socket === socket);
-    if (userIndex !== -1) {
-      users.splice(userIndex, 1);
+    let index = users.findIndex(u => u.socket === socket);
+    if (index !== -1) {
+      users.splice(index, 1);
       return;
     }
 
-    
-    const user = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])]
-      .find(u => u.partner?.socket === socket);
+    const allUsers = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])];
+    const user = allUsers.find(u => u.partner?.socket === socket);
 
-    if (user) {
+    if (user && user.partner) {
       const partner = user.partner;
       user.partner = null;
-
-      partner.socket.emit("partner-left");
       partner.partner = null;
 
-      
+      partner.socket.emit("partner-left");
       users.push(partner);
+
+      matchUsers();
+    }
+  });
+
+  socket.on("new-partner", () => {
+    const allUsers = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])];
+    let user = allUsers.find(u => u.socket === socket);
+
+    if (user) {
+      if (user.partner) {
+        const partner = user.partner;
+        user.partner = null;
+        partner.partner = null;
+
+        partner.socket.emit("partner-left");
+        users.push(partner);
+      }
+
+      if (!users.includes(user)) {
+        users.push(user);
+      }
+
       matchUsers();
     }
   });
