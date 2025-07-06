@@ -9,7 +9,6 @@ const io = socketIo(server);
 
 app.use(express.static(__dirname));
 
-
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "vitakor.html"));
 });
@@ -27,7 +26,6 @@ function matchUsers() {
     if (user2Index !== -1) {
       const user2 = users[user2Index];
 
-      
       user1.partner = user2;
       user2.partner = user1;
 
@@ -41,9 +39,12 @@ function matchUsers() {
         party: user1.party,
       });
 
-     
+      
       users = users.filter((u) => u !== user1 && u !== user2);
-      break; 
+
+      
+      matchUsers();
+      break;
     }
   }
 }
@@ -59,8 +60,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("message", (msg) => {
-    const user = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])]
-      .find(u => u.socket === socket);
+    const allUsers = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])];
+    const user = allUsers.find(u => u.socket === socket);
 
     if (user?.partner?.socket) {
       user.partner.socket.emit("message", {
@@ -74,12 +75,14 @@ io.on("connection", (socket) => {
     onlineUsers--;
     io.emit("online", onlineUsers);
 
+    
     let userIndex = users.findIndex(u => u.socket === socket);
     if (userIndex !== -1) {
       users.splice(userIndex, 1);
       return;
     }
 
+    
     const user = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])]
       .find(u => u.partner?.socket === socket);
 
@@ -89,6 +92,8 @@ io.on("connection", (socket) => {
 
       partner.socket.emit("partner-left");
       partner.partner = null;
+
+      
       users.push(partner);
       matchUsers();
     }
