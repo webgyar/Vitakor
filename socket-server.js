@@ -19,13 +19,16 @@ let users = [];
 function matchUsers() {
   for (let i = 0; i < users.length; i++) {
     const user1 = users[i];
-    const user2Index = users.findIndex(
-      (u, j) => j !== i && u.party !== user1.party && !u.partner
+    if (user1.partner) continue;
+
+    const user2 = users.find(
+      (u, j) =>
+        j !== i &&
+        !u.partner &&
+        u.party !== user1.party
     );
 
-    if (user2Index !== -1) {
-      const user2 = users[user2Index];
-
+    if (user2) {
       user1.partner = user2;
       user2.partner = user1;
 
@@ -38,11 +41,6 @@ function matchUsers() {
         name: user1.name,
         party: user1.party,
       });
-
-      users = users.filter((u) => u !== user1 && u !== user2);
-
-      matchUsers(); 
-      break;
     }
   }
 }
@@ -58,10 +56,8 @@ io.on("connection", (socket) => {
   });
 
   socket.on("message", (msg) => {
-    const allUsers = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])];
-    const user = allUsers.find(u => u.socket === socket);
-
-    if (user?.partner?.socket) {
+    const user = users.find(u => u.socket === socket);
+    if (user && user.partner && user.partner.socket) {
       user.partner.socket.emit("message", {
         from: user.name,
         msg,
@@ -73,45 +69,32 @@ io.on("connection", (socket) => {
     onlineUsers--;
     io.emit("online", onlineUsers);
 
-    let index = users.findIndex(u => u.socket === socket);
+    const index = users.findIndex(u => u.socket === socket);
     if (index !== -1) {
+      const user = users[index];
+      if (user.partner) {
+        user.partner.partner = null;
+        user.partner.socket.emit("partner-left");
+      }
       users.splice(index, 1);
       return;
     }
 
-    const allUsers = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])];
-    const user = allUsers.find(u => u.partner?.socket === socket);
-
+    const user = users.find(u => u.partner && u.partner.socket === socket);
     if (user && user.partner) {
-      const partner = user.partner;
-      user.partner = null;
-      partner.partner = null;
-
-      partner.socket.emit("partner-left");
-      users.push(partner);
-
-      matchUsers();
+      user.partner.partner = null;
+      user.partner.socket.emit("partner-left");
     }
   });
 
   socket.on("new-partner", () => {
-    const allUsers = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])];
-    let user = allUsers.find(u => u.socket === socket);
-
+    const user = users.find(u => u.socket === socket);
     if (user) {
       if (user.partner) {
-        const partner = user.partner;
+        user.partner.partner = null;
+        user.partner.socket.emit("partner-left");
         user.partner = null;
-        partner.partner = null;
-
-        partner.socket.emit("partner-left");
-        users.push(partner);
       }
-
-      if (!users.includes(user)) {
-        users.push(user);
-      }
-
       matchUsers();
     }
   });
