@@ -1,109 +1,89 @@
 const express = require("express");
 const http = require("http");
+const path = require("path");
 const socketIo = require("socket.io");
+const fs = require("fs");
 
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: { origin: "*" }
+  cors: { origin: "*" },
 });
 
-let onlineCount = 0;
-let waitingUsers = [];
+app.use(express.static(__dirname));
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "vitakor.html"));
+});
+
+
+let onlineUsers = 0;
+let users = [];
+
+function matchUsers() {
+  while (users.length >= 2) {
+    const user1 = users.shift();
+    const user2 = users.find((u) => u.party !== user1.party);
+
+    if (!user2) {
+      users.unshift(user1);
+      return;
+    }
+
+    users = users.filter((u) => u !== user2);
+
+    user1.partner = user2;
+    user2.partner = user1;
+
+    user1.socket.emit("partner-found", {
+      name: user2.name,
+      party: user2.party,
+    });
+
+    user2.socket.emit("partner-found", {
+      name: user1.name,
+      party: user1.party,
+    });
+  }
+}
 
 io.on("connection", (socket) => {
-  onlineCount++;
-  io.emit("online", onlineCount);
-
-  let currentUser = null;
+  onlineUsers++;
+  io.emit("online", onlineUsers);
 
   socket.on("register", ({ name, party }) => {
-    const cleanParty = (party || "").trim().toLowerCase();
-    currentUser = { socket, name, party: cleanParty, partner: null };
-    console.log(`🟢 Regisztrált: ${name} (${cleanParty})`);
-    waitingUsers.push(currentUser);
+    const user = { socket, name, party, partner: null };
+    users.push(user);
     matchUsers();
   });
 
-  socket.on("message", (text) => {
-    if (currentUser?.partner) {
-      currentUser.partner.socket.emit("message", {
-        from: currentUser.name,
-        text
+  socket.on("message", (msg) => {
+    const user = users.find((u) => u.socket === socket);
+    if (user?.partner) {
+      user.partner.socket.emit("message", {
+        from: user.name,
+        msg,
       });
     }
   });
 
-  socket.on("new-partner", () => {
-    if (currentUser?.partner) {
-      currentUser.partner.socket.emit("partner-left");
-      currentUser.partner.partner = null;
-      waitingUsers.push(currentUser.partner);
-    }
-    currentUser.partner = null;
-    waitingUsers.push(currentUser);
-    matchUsers();
-  });
-
   socket.on("disconnect", () => {
-    onlineCount--;
-    io.emit("online", onlineCount);
-
-    if (!currentUser) return;
-
-    if (currentUser.partner) {
-      currentUser.partner.socket.emit("partner-left");
-      currentUser.partner.partner = null;
-      waitingUsers.push(currentUser.partner);
-    }
-
-    waitingUsers = waitingUsers.filter(u => u.socket.id !== socket.id);
-    console.log(`❌ Kilépett: ${currentUser.name} (${currentUser.party})`);
-  });
-
-  function matchUsers() {
-    console.log("🔍 Párosítás próbálkozás...");
-    for (let i = 0; i < waitingUsers.length; i++) {
-      const userA = waitingUsers[i];
-      if (userA.partner) continue;
-
-      for (let j = i + 1; j < waitingUsers.length; j++) {
-        const userB = waitingUsers[j];
-        if (userB.partner) continue;
-
-        // normált pártok (kisbetű + trim)
-        const partyA = (userA.party || "").trim().toLowerCase();
-        const partyB = (userB.party || "").trim().toLowerCase();
-
-        console.log(`🔎 Vizsgálat: ${userA.name} (${partyA}) ↔ ${userB.name} (${partyB})`);
-
-        if (partyA && partyB && partyA !== partyB) {
-          userA.partner = userB;
-          userB.partner = userA;
-
-          userA.socket.emit("partner-found", {
-            name: userB.name,
-            party: userB.party
-          });
-
-          userB.socket.emit("partner-found", {
-            name: userA.name,
-            party: userA.party
-          });
-
-          console.log(`✅ Párosítva: ${userA.name} ↔ ${userB.name}`);
-
-          waitingUsers = waitingUsers.filter(u => u !== userA && u !== userB);
-          return;
-        } else {
-          console.log(`❌ Nem párosítható – azonos párt: ${partyA}`);
-        }
+    onlineUsers--;
+    io.emit("online", onlineUsers);
+    const index = users.findIndex((u) => u.socket === socket);
+    if (index !== -1) {
+      const user = users.splice(index, 1)[0];
+      if (user.partner) {
+        user.partner.socket.emit("partner-left");
+        users.push(user.partner);
+        matchUsers();
       }
     }
-    console.log("⚠️ Nincs megfelelő partner.");
-  }
+  });
 });
 
-server.listen(3002, () => {
-  console.log("🚀 Socket.IO szerver fut a 3002-es porton");
+
+const PORT = process.env.PORT || 3002;
+server.listen(PORT, () => {
+  console.log(`Szerver fut: http://localhost:${PORT}`);
 });
