@@ -7,7 +7,6 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server);
 
-
 app.use(express.static(__dirname));
 
 
@@ -19,29 +18,33 @@ let onlineUsers = 0;
 let users = [];
 
 function matchUsers() {
-  while (users.length >= 2) {
-    const user1 = users.shift();
-    const user2Index = users.findIndex(u => u.party !== user1.party);
+  for (let i = 0; i < users.length; i++) {
+    const user1 = users[i];
+    const user2Index = users.findIndex(
+      (u, j) => j !== i && u.party !== user1.party && !u.partner
+    );
 
-    if (user2Index === -1) {
-      users.unshift(user1);
-      return;
+    if (user2Index !== -1) {
+      const user2 = users[user2Index];
+
+      
+      user1.partner = user2;
+      user2.partner = user1;
+
+      user1.socket.emit("partner-found", {
+        name: user2.name,
+        party: user2.party,
+      });
+
+      user2.socket.emit("partner-found", {
+        name: user1.name,
+        party: user1.party,
+      });
+
+     
+      users = users.filter((u) => u !== user1 && u !== user2);
+      break; 
     }
-
-    const user2 = users.splice(user2Index, 1)[0];
-
-    user1.partner = user2;
-    user2.partner = user1;
-
-    user1.socket.emit("partner-found", {
-      name: user2.name,
-      party: user2.party,
-    });
-
-    user2.socket.emit("partner-found", {
-      name: user1.name,
-      party: user1.party,
-    });
   }
 }
 
@@ -56,8 +59,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("message", (msg) => {
-    const user = users.find((u) => u.socket === socket);
-    if (user?.partner) {
+    const user = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])]
+      .find(u => u.socket === socket);
+
+    if (user?.partner?.socket) {
       user.partner.socket.emit("message", {
         from: user.name,
         msg,
@@ -69,27 +74,28 @@ io.on("connection", (socket) => {
     onlineUsers--;
     io.emit("online", onlineUsers);
 
-    const index = users.findIndex((u) => u.socket === socket);
-    if (index !== -1) {
-      const user = users.splice(index, 1)[0];
-      if (user.partner) {
-        user.partner.socket.emit("partner-left");
-        user.partner.partner = null;
-        users.push(user.partner);
-        matchUsers();
-      }
-    } else {
-      const user = users.find(u => u.partner?.socket === socket);
-      if (user) {
-        user.partner = null;
-        user.socket.emit("partner-left");
-        matchUsers();
-      }
+    let userIndex = users.findIndex(u => u.socket === socket);
+    if (userIndex !== -1) {
+      users.splice(userIndex, 1);
+      return;
+    }
+
+    const user = [...users, ...users.flatMap(u => u.partner ? [u.partner] : [])]
+      .find(u => u.partner?.socket === socket);
+
+    if (user) {
+      const partner = user.partner;
+      user.partner = null;
+
+      partner.socket.emit("partner-left");
+      partner.partner = null;
+      users.push(partner);
+      matchUsers();
     }
   });
 });
 
 const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
-  console.log("Szerver fut a porton:", PORT);
+  console.log(`✅ Szerver elindult a ${PORT} porton`);
 });
