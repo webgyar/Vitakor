@@ -1,21 +1,19 @@
 const express = require("express");
 const http = require("http");
-const path = require("path");
 const socketIo = require("socket.io");
-const fs = require("fs");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: { origin: "*" },
-});
+const io = socketIo(server);
+
 
 app.use(express.static(__dirname));
+
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "vitakor.html"));
 });
-
 
 let onlineUsers = 0;
 let users = [];
@@ -23,14 +21,14 @@ let users = [];
 function matchUsers() {
   while (users.length >= 2) {
     const user1 = users.shift();
-    const user2 = users.find((u) => u.party !== user1.party);
+    const user2Index = users.findIndex(u => u.party !== user1.party);
 
-    if (!user2) {
+    if (user2Index === -1) {
       users.unshift(user1);
       return;
     }
 
-    users = users.filter((u) => u !== user2);
+    const user2 = users.splice(user2Index, 1)[0];
 
     user1.partner = user2;
     user2.partner = user1;
@@ -70,20 +68,28 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     onlineUsers--;
     io.emit("online", onlineUsers);
+
     const index = users.findIndex((u) => u.socket === socket);
     if (index !== -1) {
       const user = users.splice(index, 1)[0];
       if (user.partner) {
         user.partner.socket.emit("partner-left");
+        user.partner.partner = null;
         users.push(user.partner);
+        matchUsers();
+      }
+    } else {
+      const user = users.find(u => u.partner?.socket === socket);
+      if (user) {
+        user.partner = null;
+        user.socket.emit("partner-left");
         matchUsers();
       }
     }
   });
 });
 
-
 const PORT = process.env.PORT || 3002;
 server.listen(PORT, () => {
-  console.log(`Szerver fut: http://localhost:${PORT}`);
+  console.log("Szerver fut a porton:", PORT);
 });
