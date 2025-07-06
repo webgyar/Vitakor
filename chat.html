@@ -64,13 +64,14 @@
     });
 
     socket.on("message", (msg) => {
-      const chat = document.getElementById("chat");
-      if (typeof msg === "object" && msg.from && msg.text) {
-        chat.innerHTML += `<div><strong>${msg.from}:</strong> ${msg.text}</div>`;
-      } else {
-        chat.innerHTML += `<div><strong>Partner:</strong> ${msg}</div>`;
-      }
-    });
+  const chat = document.getElementById("chat");
+  if (typeof msg === "object" && msg.from && msg.msg) {
+    chat.innerHTML += `<div><strong>${msg.from}:</strong> ${msg.msg}</div>`;
+  } else {
+    chat.innerHTML += `<div><strong>Partner:</strong> ${msg}</div>`;
+  }
+});
+
 
     socket.on("partner-left", () => {
       document.getElementById("partnerInfo").innerText = "Partner kilépett, új keresése...";
