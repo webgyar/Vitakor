@@ -50,7 +50,7 @@
 
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <script>
-    const socket = io("http://localhost:3002");
+    const socket = io("https://vitakor.onrender.com");
 
     socket.on("online", function(count) {
       document.getElementById("online").innerText = count;
