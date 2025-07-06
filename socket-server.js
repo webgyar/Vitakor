@@ -21,11 +21,12 @@ function matchUsers() {
     const user1 = users[i];
     if (user1.partner) continue;
 
-    const user2 = users.find(
-      (u, j) =>
-        j !== i &&
-        !u.partner &&
-        u.party !== user1.party
+    const user2 = users.find((u, j) =>
+      j !== i &&
+      !u.partner &&
+      u.party !== user1.party &&
+      u.name !== user1.recentlyLeft &&
+      user1.name !== u.recentlyLeft
     );
 
     if (user2) {
@@ -50,7 +51,13 @@ io.on("connection", (socket) => {
   io.emit("online", onlineUsers);
 
   socket.on("register", ({ name, party }) => {
-    const user = { socket, name, party, partner: null };
+    const user = {
+      socket,
+      name,
+      party,
+      partner: null,
+      recentlyLeft: null
+    };
     users.push(user);
     matchUsers();
   });
@@ -75,6 +82,14 @@ io.on("connection", (socket) => {
       if (user.partner) {
         user.partner.partner = null;
         user.partner.socket.emit("partner-left");
+
+        user.partner.recentlyLeft = user.name;
+        user.recentlyLeft = user.partner.name;
+
+        setTimeout(() => {
+          user.recentlyLeft = null;
+          if (user.partner) user.partner.recentlyLeft = null;
+        }, 15000);
       }
       users.splice(index, 1);
       return;
@@ -82,8 +97,21 @@ io.on("connection", (socket) => {
 
     const user = users.find(u => u.partner && u.partner.socket === socket);
     if (user && user.partner) {
-      user.partner.partner = null;
-      user.partner.socket.emit("partner-left");
+      const partner = user.partner;
+      user.partner = null;
+      partner.partner = null;
+
+      user.recentlyLeft = partner.name;
+      partner.recentlyLeft = user.name;
+
+      setTimeout(() => {
+        user.recentlyLeft = null;
+        partner.recentlyLeft = null;
+      }, 15000);
+
+      partner.socket.emit("partner-left");
+      users.push(partner);
+      matchUsers();
     }
   });
 
@@ -91,9 +119,20 @@ io.on("connection", (socket) => {
     const user = users.find(u => u.socket === socket);
     if (user) {
       if (user.partner) {
-        user.partner.partner = null;
-        user.partner.socket.emit("partner-left");
+        const partner = user.partner;
         user.partner = null;
+        partner.partner = null;
+
+        user.recentlyLeft = partner.name;
+        partner.recentlyLeft = user.name;
+
+        setTimeout(() => {
+          user.recentlyLeft = null;
+          partner.recentlyLeft = null;
+        }, 15000);
+
+        partner.socket.emit("partner-left");
+        users.push(partner);
       }
       matchUsers();
     }
